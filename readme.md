@@ -103,10 +103,6 @@ This project demonstrates proficiency in:
   - Fallback between providers.
   - Idempotency enforcement.
 - **Use Jest for unit testing.**
-  Run tests:
-  ```bash
-  npm test
-  ```
 
 ## Running Tests
 
