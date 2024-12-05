@@ -61,19 +61,26 @@ class EmailService {
   async attemptToSend(email, subject, content) {
     const maxTries = 3;
     let attempts = 0;
+
+    if (!this.emailStatus.has(email)) {
+      this.emailStatus.set(email, { attempts: 0 });
+    }
+
     while (attempts < maxTries) {
       const provider = this.providers[this.currProviderIndex];
+
       try {
         const response = provider(email, subject, content);
-        this.emailStatus.set(email, subject);
-
+        this.emailStatus.delete(email);
         return response;
       } catch (error) {
         attempts++;
         this.emailStatus.get(email).attempts = attempts;
-        console.log(`Attempt ${attempts} failed . Swiching Provider !`);
+        console.log(`Attempt ${attempts} failed. Switching provider...`);
+        if (attempts >= maxTries) {
+          throw new Error(`Failed to send email after ${maxTries} attempts`);
+        }
         this.switchEmailProvider();
-
         await this.expoDelay(attempts);
       }
     }

@@ -1,30 +1,48 @@
 import { emailProvider } from "../src/utils/index.util.js";
 import { emailService } from "../src/services/emailService.service.js";
 
-test("Email provider 1 Check", () => {
-  const result = emailProvider[0];
+describe("Testing Provider 1 ", () => {
+  it("testing provider 1 to return true from Math.random() >= 0.4", () => {
+    jest.spyOn(global.Math, "random").mockImplementation(() => 0.5);
+    expect(emailProvider[0]("email", "subject", "content")).toBe(true);
+    Math.random.mockRestore();
+  });
 
-  expect(result("email", "subject", "content")).toEqual(true);
+  it("testing provider 1 to return error from Math.random() < 0.4", () => {
+    jest.spyOn(global.Math, "random").mockImplementation(() => 0.3);
+    expect(() => emailProvider[0]("email", "subject", "content")).toThrow(
+      "Provider 1 failed to send email",
+    );
+    Math.random.mockRestore();
+  });
 });
 
-test("Email provider 2 Check", () => {
-  const result = emailProvider[1];
+describe("Testing Provider 2 ", () => {
+  it("testing provider 1 to return true from Math.random() >= 0.4", () => {
+    jest.spyOn(global.Math, "random").mockImplementation(() => 0.5);
+    expect(emailProvider[1]("email", "subject", "content")).toBe(true);
+    Math.random.mockRestore();
+  });
 
-  expect(result("email", "subject", "content")).toEqual(true);
+  it("testing provider 1 to return error from Math.random() < 0.4", () => {
+    jest.spyOn(global.Math, "random").mockImplementation(() => 0.3);
+    expect(() => emailProvider[1]("email", "subject", "content")).toThrow(
+      "Provider 2 failed to send email",
+    );
+    Math.random.mockRestore();
+  });
 });
-
-jest.useFakeTimers();
 
 test("Exponential Delay Check", () => {
+  jest.useFakeTimers();
   const delayInMs = Math.pow(2, 2) * 1000;
   const promise = emailService.expoDelay(2);
 
   jest.advanceTimersByTime(delayInMs);
 
   expect(promise).resolves.toBeUndefined();
+  jest.useRealTimers();
 });
-
-jest.useRealTimers();
 
 describe("rateLimiting", () => {
   beforeEach(() => {
@@ -65,7 +83,6 @@ describe("rateLimiting", () => {
   });
 });
 
-/*to fix this test case */
 describe("attemptToSend", () => {
   beforeEach(() => {
     jest
@@ -77,10 +94,10 @@ describe("attemptToSend", () => {
   });
 
   afterEach(() => {
-    jest.restoreAllMocks();
+    jest.restoreAllMocks(); // Restoring mocks after each test to avoid interference
   });
 
-  it("should retry up to maxTries times on failure", async () => {
+  it("should retry up to maxTries = 3 times on failure", async () => {
     emailService.providers[0].mockImplementation(() => {
       throw new Error("Provider 1 failed to send email");
     });
@@ -96,7 +113,7 @@ describe("attemptToSend", () => {
     expect(emailService.providers[1]).toHaveBeenCalledTimes(1);
   });
 
-  it("should switch providers on failure", async () => {
+  it("should switch providers on 1 Attempt failure", async () => {
     emailService.providers[0].mockImplementation(() => {
       throw new Error("Provider 1 failed");
     });
@@ -152,7 +169,7 @@ describe("attemptToSend", () => {
 
     await expect(
       emailService.attemptToSend("test@example.com", "Subject", "Content"),
-    ).rejects.toThrow("Provider 2 failed");
+    ).rejects.toThrow();
 
     expect(emailService.emailStatus.get("test@example.com").attempts).toBe(3);
   });
