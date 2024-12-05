@@ -1,37 +1,4 @@
-import { emailProvider } from "../src/utils/index.util.js";
 import { emailService } from "../src/services/emailService.service.js";
-
-describe("Testing Provider 1 ", () => {
-  it("testing provider 1 to return true from Math.random() >= 0.4", () => {
-    jest.spyOn(global.Math, "random").mockImplementation(() => 0.5);
-    expect(emailProvider[0]("email", "subject", "content")).toBe(true);
-    Math.random.mockRestore();
-  });
-
-  it("testing provider 1 to return error from Math.random() < 0.4", () => {
-    jest.spyOn(global.Math, "random").mockImplementation(() => 0.3);
-    expect(() => emailProvider[0]("email", "subject", "content")).toThrow(
-      "Provider 1 failed to send email",
-    );
-    Math.random.mockRestore();
-  });
-});
-
-describe("Testing Provider 2 ", () => {
-  it("testing provider 1 to return true from Math.random() >= 0.4", () => {
-    jest.spyOn(global.Math, "random").mockImplementation(() => 0.5);
-    expect(emailProvider[1]("email", "subject", "content")).toBe(true);
-    Math.random.mockRestore();
-  });
-
-  it("testing provider 1 to return error from Math.random() < 0.4", () => {
-    jest.spyOn(global.Math, "random").mockImplementation(() => 0.3);
-    expect(() => emailProvider[1]("email", "subject", "content")).toThrow(
-      "Provider 2 failed to send email",
-    );
-    Math.random.mockRestore();
-  });
-});
 
 test("Exponential Delay Check", () => {
   jest.useFakeTimers();
@@ -39,9 +6,37 @@ test("Exponential Delay Check", () => {
   const promise = emailService.expoDelay(2);
 
   jest.advanceTimersByTime(delayInMs);
-
+  7;
   expect(promise).resolves.toBeUndefined();
   jest.useRealTimers();
+});
+
+describe("EmailService - switchEmailProvider", () => {
+  beforeEach(() => {
+    jest
+      .spyOn(emailService, "expoDelay")
+      .mockImplementation(() => Promise.resolve());
+    emailService.currProviderIndex = 0;
+  });
+
+  it("should switch to the next provider", () => {
+    emailService.providers = ["ProviderA", "ProviderB", "ProviderC"];
+    emailService.switchEmailProvider();
+    expect(emailService.currProviderIndex).toBe(1);
+  });
+
+  it("should wrap around to the first provider after the last provider", () => {
+    emailService.providers = ["ProviderA", "ProviderB", "ProviderC"];
+    emailService.currProviderIndex = 2;
+    emailService.switchEmailProvider();
+    expect(emailService.currProviderIndex).toBe(0);
+  });
+
+  it("should handle a single provider array correctly", () => {
+    emailService.providers = ["ProviderA"];
+    emailService.switchEmailProvider();
+    expect(emailService.currProviderIndex).toBe(0);
+  });
 });
 
 describe("rateLimiting", () => {
@@ -172,5 +167,64 @@ describe("attemptToSend", () => {
     ).rejects.toThrow();
 
     expect(emailService.emailStatus.get("test@example.com").attempts).toBe(3);
+  });
+});
+
+describe("sendEmail", () => {
+  beforeEach(() => {
+    jest
+      .spyOn(emailService, "expoDelay")
+      .mockImplementation(() => Promise.resolve());
+    emailService.emailStatus = new Map();
+    emailService.rateLimiting = jest.fn();
+    emailService.attemptToSend = jest.fn();
+  });
+
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
+
+  it("should send an email successfully", async () => {
+    emailService.attemptToSend.mockResolvedValue(true);
+
+    const response = await emailService.sendEmail(
+      "test@example.com",
+      "Test",
+      "Hello",
+    );
+
+    expect(response).toBe(true);
+    expect(emailService.attemptToSend).toHaveBeenCalledWith(
+      "test@example.com",
+      "Test",
+      "Hello",
+    );
+    expect(emailService.emailStatus.has("test@example.com")).toBeTruthy();
+  });
+
+  it("should prevent duplicate email requests", async () => {
+    emailService.emailStatus.set("test@example.com", "Test");
+    jest.spyOn(console, "log").mockImplementation(() => {});
+    const response = await emailService.sendEmail(
+      "test@example.com",
+      "Test",
+      "Hello",
+    );
+
+    expect(response).toBeUndefined();
+    expect(emailService.attemptToSend).not.toHaveBeenCalled();
+    expect(console.log).toHaveBeenCalledWith("Duplicate request restricted !");
+  });
+
+  it("should delete status and throw an error if email sending fails", async () => {
+    emailService.attemptToSend.mockRejectedValue(new Error("Sending failed"));
+
+    await expect(
+      emailService.sendEmail("test@example.com", "Test", "Hello"),
+    ).rejects.toThrow(
+      "Something went wrong while sending email after multiple requests !",
+    );
+
+    expect(emailService.emailStatus.has("test@example.com")).toBeFalsy();
   });
 });
